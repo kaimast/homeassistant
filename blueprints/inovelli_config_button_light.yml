@@ -1,0 +1,121 @@
+blueprint:
+  name: Hook - Config Button Light Control
+  description: >
+    Maps the config button of an ahb_controller_event compatible controller
+    (such as the Inovelli White Series) to control a separate light.
+
+    Single tap toggles the light. Double and triple tap actions are optional.
+
+    Pair this with a controller blueprint by using the same Controller ID.
+  domain: automation
+  input:
+    controller_id:
+      name: Controller ID
+      description: >-
+        Must match exactly the Controller ID set in the paired controller
+        automation (e.g. living_room_switch).
+      selector:
+        text:
+
+    target_light:
+      name: Light
+      description: The light to control with the config button.
+      selector:
+        target:
+          entity:
+            domain: light
+
+    single_tap_action:
+      name: Single tap action
+      description: What to do when the config button is tapped once.
+      default: toggle
+      selector:
+        select:
+          options:
+            - toggle
+            - turn_on
+            - turn_off
+
+    double_tap_action:
+      name: Double tap action
+      description: What to do when the config button is tapped twice. Leave empty to do nothing.
+      default: "none"
+      selector:
+        select:
+          options:
+            - "none"
+            - toggle
+            - turn_on
+            - turn_off
+
+    triple_tap_action:
+      name: Triple tap action
+      description: What to do when the config button is tapped three times. Leave empty to do nothing.
+      default: "none"
+      selector:
+        select:
+          options:
+            - "none"
+            - toggle
+            - turn_on
+            - turn_off
+
+variables:
+  controller_id: !input controller_id
+  single_tap_action: !input single_tap_action
+  double_tap_action: !input double_tap_action
+  triple_tap_action: !input triple_tap_action
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: event
+    event_type: ahb_controller_event
+    event_data:
+      controller: !input controller_id
+      action: config_single
+    id: config_single
+
+  - trigger: event
+    event_type: ahb_controller_event
+    event_data:
+      controller: !input controller_id
+      action: config_double
+    id: config_double
+
+  - trigger: event
+    event_type: ahb_controller_event
+    event_data:
+      controller: !input controller_id
+      action: config_triple
+    id: config_triple
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: config_single
+          - condition: template
+            value_template: "{{ single_tap_action != 'none' }}"
+        sequence:
+          - action: "light.{{ single_tap_action }}"
+            target: !input target_light
+
+      - conditions:
+          - condition: trigger
+            id: config_double
+          - condition: template
+            value_template: "{{ double_tap_action != 'none' }}"
+        sequence:
+          - action: "light.{{ double_tap_action }}"
+            target: !input target_light
+
+      - conditions:
+          - condition: trigger
+            id: config_triple
+          - condition: template
+            value_template: "{{ triple_tap_action != 'none' }}"
+        sequence:
+          - action: "light.{{ triple_tap_action }}"
+            target: !input target_light
