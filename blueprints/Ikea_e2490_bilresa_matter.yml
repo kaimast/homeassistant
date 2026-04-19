@@ -1,0 +1,244 @@
+blueprint:
+  name: Controller - IKEA E2490 BILRESA scroll wheel (Matter)
+  description: >
+    Matter version of the IKEA E2490 BILRESA scroll wheel blueprint.
+    Requires the BILRESA to be paired via Matter (not Zigbee2MQTT).
+
+    Find the event entities for each input under Settings > Devices > your
+    BILRESA device. Each physical wheel position exposes 3 entities — clockwise,
+    counter-clockwise, and center press. Identify which is which by pressing
+    buttons and watching Developer Tools > States (filter by event.bilresa).
+  domain: automation
+  input:
+    controller_entity_up:
+      name: Up button entity
+      description: Event entity for the top/up physical button (e.g. event.bilresa_..._button_7)
+      selector:
+        entity:
+          domain: event
+
+    controller_entity_down:
+      name: Down button entity
+      description: Event entity for the bottom/down physical button (e.g. event.bilresa_..._button_8)
+      selector:
+        entity:
+          domain: event
+
+    controller_entity_wheel_clockwise:
+      name: Wheel — clockwise entity
+      description: Event entity that fires when the wheel is turned clockwise (e.g. event.bilresa_..._button_1)
+      selector:
+        entity:
+          domain: event
+
+    controller_entity_wheel_counter_clockwise:
+      name: Wheel — counter-clockwise entity
+      description: Event entity that fires when the wheel is turned counter-clockwise (e.g. event.bilresa_..._button_2)
+      selector:
+        entity:
+          domain: event
+
+    controller_entity_wheel_press:
+      name: Wheel — center press entity
+      description: Event entity for pressing the center of the scroll wheel (e.g. event.bilresa_..._button_3)
+      selector:
+        entity:
+          domain: event
+
+    scroll_step_size:
+      name: Scroll step size
+      description: >
+        How much to adjust brightness/volume per scroll tick (1–50).
+        A faster scroll reports more ticks, so the total step scales automatically.
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 50
+          step: 1
+
+alias: Controller - IKEA E2490 BILRESA remote control with scroll wheel (Matter)
+
+variables:
+  controller_id: ""
+  scroll_step_size: !input scroll_step_size
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  # ── Up button (top physical button) ───────────────────────────────────────
+  - trigger: state
+    id: matter-button-up-short
+    entity_id: !input controller_entity_up
+    attribute: event_type
+    to: "multi_press_1"
+
+  - trigger: state
+    id: matter-button-up-double
+    entity_id: !input controller_entity_up
+    attribute: event_type
+    to: "multi_press_2"
+
+  - trigger: state
+    id: matter-button-up-long
+    entity_id: !input controller_entity_up
+    attribute: event_type
+    to: "long_press"
+
+  # ── Down button (bottom physical button) ──────────────────────────────────
+  - trigger: state
+    id: matter-button-down-short
+    entity_id: !input controller_entity_down
+    attribute: event_type
+    to: "multi_press_1"
+
+  - trigger: state
+    id: matter-button-down-double
+    entity_id: !input controller_entity_down
+    attribute: event_type
+    to: "multi_press_2"
+
+  - trigger: state
+    id: matter-button-down-long
+    entity_id: !input controller_entity_down
+    attribute: event_type
+    to: "long_press"
+
+  # ── Scroll wheel ───────────────────────────────────────────────────────────
+  # Clockwise and counter-clockwise are separate event entities in Matter.
+  # totalNumberOfPressesCounted tells us how many ticks were scrolled at once.
+  - trigger: state
+    id: matter-rotate-clockwise
+    entity_id: !input controller_entity_wheel_clockwise
+
+  - trigger: state
+    id: matter-rotate-counter-clockwise
+    entity_id: !input controller_entity_wheel_counter_clockwise
+
+  # ── Wheel center press ────────────────────────────────────────────────────
+  - trigger: state
+    id: matter-wheel-press-short
+    entity_id: !input controller_entity_wheel_press
+    attribute: event_type
+    to: "multi_press_1"
+
+  - trigger: state
+    id: matter-wheel-press-double
+    entity_id: !input controller_entity_wheel_press
+    attribute: event_type
+    to: "multi_press_2"
+
+conditions:
+  - condition: template
+    # Guard against spurious state changes (e.g. friendly_name edits) that
+    # update attributes without a real button event occurring. Only proceed
+    # when the state value (timestamp) itself has changed.
+    value_template: >
+      {{ trigger.from_state.state != trigger.to_state.state }}
+
+actions:
+  - variables:
+      # How many ticks the wheel moved in this single event.
+      # Absent for button presses — defaults to 1 (harmless there).
+      scroll_ticks: >
+        {{ trigger.to_state.attributes.get('totalNumberOfPressesCounted', 1) | int(1) }}
+
+  - choose:
+      # ── Up button ──────────────────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id: matter-button-up-short
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: button_up_short
+
+      - conditions:
+          - condition: trigger
+            id: matter-button-up-double
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: button_up_double
+
+      - conditions:
+          - condition: trigger
+            id: matter-button-up-long
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: button_up_long
+
+      # ── Down button ────────────────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id: matter-button-down-short
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: button_down_short
+
+      - conditions:
+          - condition: trigger
+            id: matter-button-down-double
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: button_down_double
+
+      - conditions:
+          - condition: trigger
+            id: matter-button-down-long
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: button_down_long
+
+      # ── Scroll wheel ───────────────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id: matter-rotate-clockwise
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: rotate_clockwise
+              # step_size scales with how many ticks were scrolled in one motion.
+              # Hook automations can use this to adjust brightness/volume proportionally.
+              step_size: "{{ scroll_ticks * scroll_step_size }}"
+
+      - conditions:
+          - condition: trigger
+            id: matter-rotate-counter-clockwise
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: rotate_counter_clockwise
+              step_size: "{{ scroll_ticks * scroll_step_size }}"
+
+      # ── Wheel center press ─────────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id: matter-wheel-press-short
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: wheel_press_short
+
+      - conditions:
+          - condition: trigger
+            id: matter-wheel-press-double
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: wheel_press_double
