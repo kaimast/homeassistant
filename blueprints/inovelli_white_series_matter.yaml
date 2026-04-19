@@ -1,0 +1,407 @@
+blueprint:
+  name: Controller - Inovelli White Series Switch/Dimmer (Matter)
+  description: >
+    Blueprint for the Inovelli White Series switch and dimmer (Matter/Thread).
+    Adapted from the Inovelli Blue Series Z2M blueprint by starbuck93.
+
+    Fires ahb_controller_event events so it can be paired with Hooks from the
+    Controllers-Hooks Ecosystem, matching the pattern of the BILRESA blueprint.
+
+    Supports 1-5 taps, hold, and release on all three buttons (up, down, config).
+
+    Note: There is a known firmware issue where certain multi-taps may not
+    register if repeated consecutively without another button press in between.
+    Inovelli has indicated this will be addressed in a future firmware update.
+  domain: automation
+  source_url: https://community.home-assistant.io/t/inovelli-matter-switch-tap-sequences/759297
+  input:
+    controller_id:
+      name: Controller ID
+      description: >-
+        A unique identifier for this controller. Must match exactly the
+        Controller ID set in any paired Hook automations (e.g. light, media
+        player). Example: living_room_switch
+      selector:
+        text:
+
+    controller_entity_up:
+      name: Up paddle entity
+      description: >-
+        Event entity for the up paddle (e.g. event.living_room_switch_up).
+      selector:
+        entity:
+          domain: event
+
+    controller_entity_down:
+      name: Down paddle entity
+      description: >-
+        Event entity for the down paddle (e.g. event.living_room_switch_down).
+      selector:
+        entity:
+          domain: event
+
+    controller_entity_config:
+      name: Config button entity
+      description: >-
+        Event entity for the config button (e.g. event.living_room_switch_config).
+      selector:
+        entity:
+          domain: event
+
+variables:
+  controller_id: !input controller_id
+
+mode: restart
+max_exceeded: silent
+
+triggers:
+  # ── Up paddle ──────────────────────────────────────────────────────────────
+  - trigger: state
+    id: up_single
+    entity_id: !input controller_entity_up
+    attribute: event_type
+    to: multi_press_1
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: up_double
+    entity_id: !input controller_entity_up
+    attribute: event_type
+    to: multi_press_2
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: up_triple
+    entity_id: !input controller_entity_up
+    attribute: event_type
+    to: multi_press_3
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: up_quadruple
+    entity_id: !input controller_entity_up
+    attribute: event_type
+    to: multi_press_4
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: up_quintuple
+    entity_id: !input controller_entity_up
+    attribute: event_type
+    to: multi_press_5
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: up_held
+    entity_id: !input controller_entity_up
+    attribute: event_type
+    to: long_press
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: up_release
+    entity_id: !input controller_entity_up
+    attribute: event_type
+    to: long_release
+    not_from: [unknown, unavailable]
+
+  # ── Down paddle ────────────────────────────────────────────────────────────
+  - trigger: state
+    id: down_single
+    entity_id: !input controller_entity_down
+    attribute: event_type
+    to: multi_press_1
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: down_double
+    entity_id: !input controller_entity_down
+    attribute: event_type
+    to: multi_press_2
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: down_triple
+    entity_id: !input controller_entity_down
+    attribute: event_type
+    to: multi_press_3
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: down_quadruple
+    entity_id: !input controller_entity_down
+    attribute: event_type
+    to: multi_press_4
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: down_quintuple
+    entity_id: !input controller_entity_down
+    attribute: event_type
+    to: multi_press_5
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: down_held
+    entity_id: !input controller_entity_down
+    attribute: event_type
+    to: long_press
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: down_release
+    entity_id: !input controller_entity_down
+    attribute: event_type
+    to: long_release
+    not_from: [unknown, unavailable]
+
+  # ── Config button ──────────────────────────────────────────────────────────
+  - trigger: state
+    id: config_single
+    entity_id: !input controller_entity_config
+    attribute: event_type
+    to: multi_press_1
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: config_double
+    entity_id: !input controller_entity_config
+    attribute: event_type
+    to: multi_press_2
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: config_triple
+    entity_id: !input controller_entity_config
+    attribute: event_type
+    to: multi_press_3
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: config_quadruple
+    entity_id: !input controller_entity_config
+    attribute: event_type
+    to: multi_press_4
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: config_quintuple
+    entity_id: !input controller_entity_config
+    attribute: event_type
+    to: multi_press_5
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: config_held
+    entity_id: !input controller_entity_config
+    attribute: event_type
+    to: long_press
+    not_from: [unknown, unavailable]
+
+  - trigger: state
+    id: config_release
+    entity_id: !input controller_entity_config
+    attribute: event_type
+    to: long_release
+    not_from: [unknown, unavailable]
+
+conditions:
+  - condition: template
+    # Guard against spurious state changes (e.g. entity renames) that fire
+    # a state event without a real button press occurring.
+    value_template: >
+      {{ trigger.from_state.state != trigger.to_state.state }}
+
+actions:
+  - choose:
+      # ── Up paddle ──────────────────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id: up_single
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: up_single
+
+      - conditions:
+          - condition: trigger
+            id: up_double
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: up_double
+
+      - conditions:
+          - condition: trigger
+            id: up_triple
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: up_triple
+
+      - conditions:
+          - condition: trigger
+            id: up_quadruple
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: up_quadruple
+
+      - conditions:
+          - condition: trigger
+            id: up_quintuple
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: up_quintuple
+
+      - conditions:
+          - condition: trigger
+            id: up_held
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: up_held
+
+      - conditions:
+          - condition: trigger
+            id: up_release
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: up_release
+
+      # ── Down paddle ────────────────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id: down_single
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: down_single
+
+      - conditions:
+          - condition: trigger
+            id: down_double
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: down_double
+
+      - conditions:
+          - condition: trigger
+            id: down_triple
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: down_triple
+
+      - conditions:
+          - condition: trigger
+            id: down_quadruple
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: down_quadruple
+
+      - conditions:
+          - condition: trigger
+            id: down_quintuple
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: down_quintuple
+
+      - conditions:
+          - condition: trigger
+            id: down_held
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: down_held
+
+      - conditions:
+          - condition: trigger
+            id: down_release
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: down_release
+
+      # ── Config button ──────────────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id: config_single
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: config_single
+
+      - conditions:
+          - condition: trigger
+            id: config_double
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: config_double
+
+      - conditions:
+          - condition: trigger
+            id: config_triple
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: config_triple
+
+      - conditions:
+          - condition: trigger
+            id: config_quadruple
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: config_quadruple
+
+      - conditions:
+          - condition: trigger
+            id: config_quintuple
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: config_quintuple
+
+      - conditions:
+          - condition: trigger
+            id: config_held
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: config_held
+
+      - conditions:
+          - condition: trigger
+            id: config_release
+        sequence:
+          - event: ahb_controller_event
+            event_data:
+              controller: "{{ controller_id }}"
+              action: config_release
